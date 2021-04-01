@@ -22,8 +22,9 @@ import java.util.jar.Manifest
 
 class MainActivity2 : AppCompatActivity() {
 
-    var selectedPicture: Uri? = null
-    var selectedBitmap: Bitmap? = null
+    var selectedPicture : Uri? = null
+    var selectedBitmap : Bitmap? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main2)
@@ -70,7 +71,9 @@ class MainActivity2 : AppCompatActivity() {
 
         }
 
+
     }
+
 
     fun save(view: View) {
 
@@ -78,38 +81,46 @@ class MainActivity2 : AppCompatActivity() {
         val artistName = artistText.text.toString()
         val year = yearText.text.toString()
 
-        if(selectedBitmap !=null){
-            val smallBitmap=makeSmallerBitmap(selectedBitmap!!,300)
+        if (selectedBitmap != null) {
+            val smallBitmap = makeSmallerBitmap(selectedBitmap!!,300)
+
             val outputStream = ByteArrayOutputStream()
-            smallBitmap.compress(Bitmap.CompressFormat.PNG, 50, outputStream)
+            smallBitmap.compress(Bitmap.CompressFormat.PNG,50,outputStream)
             val byteArray = outputStream.toByteArray()
 
-          try {
+            try {
+
+                val database = this.openOrCreateDatabase("Arts", Context.MODE_PRIVATE, null)
+                database.execSQL("CREATE TABLE IF NOT EXISTS arts (id INTEGER PRIMARY KEY, artname VARCHAR, artistname VARCHAR, year VARCHAR, image BLOB)")
+
+                val sqlString =
+                    "INSERT INTO arts (artname, artistname, year, image) VALUES (?, ?, ?, ?)"
+                val statement = database.compileStatement(sqlString)
+                statement.bindString(1, artName)
+                statement.bindString(2, artistName)
+                statement.bindString(3, year)
+                statement.bindBlob(4, byteArray)
+
+                statement.execute()
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
 
 
+            val intent = Intent(this,MainActivity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
 
-        val database=this.openOrCreateDatabase("Arts",Context.MODE_PRIVATE,null)
-            database.execSQL("CREATE TABLE IF NOT EXISTS arts (id INTEGER PRIMARY KEY, artname VARCHAR, artistname VARCHAR, year VARCHAR, image BLOB)")
+            startActivity(intent)
 
-            val sqlString =
-                "INSERT INTO arts (artname, artistname, year, image) VALUES (?, ?, ?, ?)"
-            val statement = database.compileStatement(sqlString)
-            statement.bindString(1, artName)
-            statement.bindString(2, artistName)
-            statement.bindString(3, year)
-            statement.bindBlob(4, byteArray)
+            //finish()
 
-            statement.execute()
-                }catch (e:Exception){
-              e.printStackTrace()
-          }
-            finish()
         }
 
 
 
-
     }
+
     fun makeSmallerBitmap(image: Bitmap, maximumSize : Int) : Bitmap {
         var width = image.width
         var height = image.height
@@ -130,77 +141,67 @@ class MainActivity2 : AppCompatActivity() {
     }
 
 
-
-
-
     fun selectImage(view: View) {
 
-            if (ContextCompat.checkSelfPermission(
-                    this,
-                    android.Manifest.permission.READ_EXTERNAL_STORAGE
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
 
-                ActivityCompat.requestPermissions(
-                    this,
-                    arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE),
-                    1
-                )
-
-            } else {
-
-                val intentToGallery =
-                    Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-                startActivityForResult(intentToGallery, 2)
-
-            }
-
+        if(ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE),1)
+        } else {
+            val intentToGallery = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+            startActivityForResult(intentToGallery,2)
         }
 
-        override fun onRequestPermissionsResult(
-            requestCode: Int,
-            permissions: Array<out String>,
-            grantResults: IntArray
-        ) {
-
-            if (requestCode == 1) {
-                if (grantResults.size > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    val intentToGallery =
-                        Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-                    startActivityForResult(intentToGallery, 2)
-                }
-            }
-            super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        }
-
-        override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-
-            if (requestCode == 2 && resultCode == Activity.RESULT_OK && data != null) {
-
-                selectedPicture = data.data
-
-                try {
-
-
-                    if (selectedPicture != null) {
-                        if (Build.VERSION.SDK_INT >= 28) {
-                            val source =
-                                ImageDecoder.createSource(this.contentResolver, selectedPicture!!)
-                            selectedBitmap = ImageDecoder.decodeBitmap(source)
-                            imageView.setImageBitmap(selectedBitmap)
-                        } else {
-                            selectedBitmap =
-                                MediaStore.Images.Media.getBitmap(
-                                    this.contentResolver,
-                                    selectedPicture
-                                )
-                            imageView.setImageBitmap(selectedBitmap)
-                        }
-                    }
-                } catch (e: Exception) {
-                    println("sikinti var")
-                }
-            }
-            super.onActivityResult(requestCode, resultCode, data)
-        }
     }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        if (requestCode == 1) {
+
+            if (grantResults.size > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                val intentToGallery = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+                startActivityForResult(intentToGallery,2)
+            }
+
+        }
+
+
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+
+        if ( requestCode == 2 && resultCode == Activity.RESULT_OK && data != null) {
+
+            selectedPicture = data.data
+
+            try {
+
+                if (selectedPicture != null) {
+
+                    if (Build.VERSION.SDK_INT >= 28) {
+                        val source =
+                            ImageDecoder.createSource(this.contentResolver, selectedPicture!!)
+                        selectedBitmap = ImageDecoder.decodeBitmap(source)
+                        imageView.setImageBitmap(selectedBitmap)
+                    } else {
+                        selectedBitmap =
+                            MediaStore.Images.Media.getBitmap(this.contentResolver, selectedPicture)
+                        imageView.setImageBitmap(selectedBitmap)
+                    }
+                }
+            } catch (e: Exception) {
+
+            }
+
+        }
+
+
+        super.onActivityResult(requestCode, resultCode, data)
+    }
+
+
+
+}
